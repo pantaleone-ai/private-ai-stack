@@ -1,14 +1,16 @@
 version: "3.8"
+
 services:
+  # PostgreSQL Database with pgvector
   postgres:
     image: ankane/pgvector:latest
     container_name: postgres_local
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: "user"
-      POSTGRES_PASSWORD: "password"
-      POSTGRES_DB: "database"
+      - POSTGRES_USER=n8n_user
+      - POSTGRES_PASSWORD=0664504853e0864888cccccb0d44d676a3e1646d094f8f06aa0492079b123f37
+      - POSTGRES_DB=n8n_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -23,6 +25,7 @@ services:
           memory: 512m
     restart: unless-stopped
 
+  # Redis Cache
   redis:
     image: redis:latest
     container_name: redis
@@ -40,42 +43,43 @@ services:
           memory: 256m
     restart: unless-stopped
 
+  # n8n Workflow Automation
   n8n:
     image: n8nio/n8n:latest
     container_name: n8n
     environment:
-      DB_TYPE: "postgresdb"
-      DB_POSTGRESDB_HOST: "postgres"
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: "database"
-      DB_POSTGRESDB_USER: "user"
-      DB_POSTGRESDB_PASSWORD: "password"
-      DB_POSTGRESDB_SSL: "false"
-      EXECUTIONS_MODE: "regular"
-      CACHE_MODE: "redis"
-      CACHE_REDIS_HOST: "redis"
-      CACHE_REDIS_PORT: 6379
-      CACHE_REDIS_DB: 0
-      N8N_HOST: "your-domain.com"
-      N8N_PORT: 5678
-      N8N_PROTOCOL: "https"
-      N8N_EDITOR_BASE_URL: "https://your-domain.com"
-      WEBHOOK_URL: "https://your-domain.com"
-      N8N_LOG_LEVEL: "info"
-      N8N_COMMUNITY_PACKAGES_ENABLED: "true"
-      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
-      N8N_PUSH_BACKEND: "websocket"
-      N8N_DIAGNOSTICS_ENABLED: "false"
-      N8N_TEMPLATES_ENABLED: "false"
-      GENERIC_TIMEZONE: "America/Denver"
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n_db
+      - DB_POSTGRESDB_USER=n8n_user
+      - DB_POSTGRESDB_PASSWORD=0664504853e0864888cccccb0d44d676a3e1646d094f8f06aa0492079b123f37
+      - DB_POSTGRESDB_SSL=false
+      - EXECUTIONS_MODE=regular
+      - CACHE_MODE=redis
+      - CACHE_REDIS_HOST=redis
+      - CACHE_REDIS_PORT=6379
+      - CACHE_REDIS_DB=0
+      - N8N_HOST=n8n.rapigent.com
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://n8n.rapigent.com
+      - WEBHOOK_URL=https://n8n.rapigent.com
+      - N8N_LOG_LEVEL=info
+      - N8N_COMMUNITY_PACKAGES_ENABLED=true
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - N8N_PUSH_BACKEND=websocket
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - GENERIC_TIMEZONE=America/Denver
     volumes:
       - n8n_data:/home/node/.n8n
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`your-domain.com`)"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.rapigent.com`)"
       - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls=true"
-      - "traefik.http.routers.n8n.tls.certresolver=resolver"
+      - "traefik.http.routers.n8n.tls.certresolver=myresolver"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
     networks:
       internal:
@@ -90,27 +94,28 @@ services:
           memory: 4g
     restart: unless-stopped
 
+  # OpenWebUI - Connects to Llama.cpp
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: openwebui
     environment:
-      OPENAI_API_BASE_URLS: "http://llama:8080/"
-      WEBUI_URL: "https://your-webui-domain.com"
-      DATA_DIR: "/app/backend/data"
-      NO_PROXY: "0.0.0.0,localhost,127.0.0.1,host.docker.internal"
-      UV_SYSTEM_PYTHON: "true"
-      WEBUI_NAME: "WebUI"
-      REDIS_HOST: "redis"
-      REDIS_PORT: 6379
-      REDIS_DB: 1
+      - OPENAI_API_BASE_URLS=http://llama:8080/
+      - WEBUI_URL=https://openwebui.rapigent.com
+      - DATA_DIR=/app/backend/data
+      - NO_PROXY=0.0.0.0,localhost,127.0.0.1,host.docker.internal
+      - UV_SYSTEM_PYTHON=true
+      - WEBUI_NAME=AICeo
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=1
     volumes:
       - openwebui_data:/app/backend/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.openwebui.rule=Host(`your-webui-domain.com`)"
+      - "traefik.http.routers.openwebui.rule=Host(`openwebui.rapigent.com`)"
       - "traefik.http.routers.openwebui.entrypoints=websecure"
       - "traefik.http.routers.openwebui.tls=true"
-      - "traefik.http.routers.openwebui.tls.certresolver=resolver"
+      - "traefik.http.routers.openwebui.tls.certresolver=myresolver"
       - "traefik.http.services.openwebui.loadbalancer.server.port=8080"
     networks:
       internal:
@@ -127,13 +132,14 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  # Llama.cpp (Ampere Optimized)
   llama:
     image: amperecomputingai/llama.cpp:latest
     container_name: llama
     entrypoint: /llm/llama-server
     command:
       - "--model"
-      - "/models/model.gguf"
+      - "/models/qwen-3-4b-2507.gguf"
       - "--host"
       - "0.0.0.0"
       - "--port"
@@ -141,10 +147,10 @@ services:
       - "--threads"
       - "3"
       - "--jinja"
-      - "--flash-attn"
-      - "auto"
-      - "-sm"
-      - "row"
+      - "--flash-attn" # <-- Corrected flag name from -fa
+      - "auto"         # <-- Provided a valid value for the flag
+      - "-sm"          # <-- Separated the -sm flag
+      - "row"          # <-- Provided its value correctly
       - "--temp"
       - "0.6"
       - "--top-k"
@@ -160,8 +166,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /path/to/your/models:/models
-      - /path/to/your/data:/data
+      - /opt/docker/llama/models:/models
+      - /opt/docker/llama/data:/data
     networks:
       internal:
         ipv4_address: 172.18.0.8
@@ -172,6 +178,7 @@ services:
           memory: 18g
     restart: unless-stopped
 
+  # Traefik Reverse Proxy
   traefik:
     image: traefik:v2.11
     container_name: traefik
@@ -180,10 +187,10 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.resolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.resolver.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.resolver.acme.email=your-email@example.com"
-      - "--certificatesresolvers.resolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=mdptrading@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--log.level=INFO"
       - "--providers.file.filename=/etc/traefik/traefik_dynamic.yml"
     ports:
@@ -192,7 +199,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme.json:/letsencrypt/acme.json
-      - /path/to/your/traefik_dynamic.yml:/etc/traefik/traefik_dynamic.yml:ro
+      - /home/ubuntu/ai/traefik_dynamic.yml:/etc/traefik/traefik_dynamic.yml:ro
     networks:
       internal:
         ipv4_address: 172.18.0.2
@@ -210,6 +217,34 @@ services:
           memory: 256m
     restart: unless-stopped
 
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: crawl4ai
+    # Increase shared memory size to prevent browser crashes on heavy pages
+    shm_size: '2gb'
+    environment:
+      # Optional: Secure the API if exposed externally
+      - CRAWL4AI_API_TOKEN=UPDATEME
+    volumes:
+      - crawl4ai_data:/app/data
+      - /dev/shm:/dev/shm
+    networks:
+      internal:
+        ipv4_address: 172.18.0.9
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.crawl4ai.rule=Host(`crawl.UPDATE.ME`)"
+      - "traefik.http.routers.crawl4ai.entrypoints=websecure"
+      - "traefik.http.routers.crawl4ai.tls=true"
+      - "traefik.http.routers.crawl4ai.tls.certresolver=resolver"
+      - "traefik.http.services.crawl4ai.loadbalancer.server.port=11235"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2g
+    restart: unless-stopped
+
 networks:
   internal:
     driver: bridge
@@ -223,4 +258,6 @@ volumes:
   openwebui_data:
   redis_data:
   letsencrypt:
+  crawl4ai_data:
+  langfuse_data:
   llama_data:
