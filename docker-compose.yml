@@ -8,9 +8,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=n8n_user
-      - POSTGRES_PASSWORD=0664504853e0864888cccccb0d44d676a3e1646d094f8f06aa0492079b123f37
-      - POSTGRES_DB=n8n_db
+      - POSTGRES_USER=${POSTGRES_USER:-db_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password_placeholder}
+      - POSTGRES_DB=${POSTGRES_DB:-n8n_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -51,32 +51,32 @@ services:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=n8n_db
-      - DB_POSTGRESDB_USER=n8n_user
-      - DB_POSTGRESDB_PASSWORD=0664504853e0864888cccccb0d44d676a3e1646d094f8f06aa0492079b123f37
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-n8n_db}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-db_user}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-secure_password_placeholder}
       - DB_POSTGRESDB_SSL=false
       - EXECUTIONS_MODE=regular
       - CACHE_MODE=redis
       - CACHE_REDIS_HOST=redis
       - CACHE_REDIS_PORT=6379
       - CACHE_REDIS_DB=0
-      - N8N_HOST=n8n.rapigent.com
+      - N8N_HOST=${N8N_DOMAIN:-n8n.example.com}
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
-      - N8N_EDITOR_BASE_URL=https://n8n.rapigent.com
-      - WEBHOOK_URL=https://n8n.rapigent.com
+      - N8N_EDITOR_BASE_URL=https://${N8N_DOMAIN:-n8n.example.com}
+      - WEBHOOK_URL=https://${N8N_DOMAIN:-n8n.example.com}
       - N8N_LOG_LEVEL=info
       - N8N_COMMUNITY_PACKAGES_ENABLED=true
       - NODE_FUNCTION_ALLOW_EXTERNAL=*
       - N8N_PUSH_BACKEND=websocket
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_TEMPLATES_ENABLED=false
-      - GENERIC_TIMEZONE=America/Denver
+      - GENERIC_TIMEZONE=${TIMEZONE:-UTC}
     volumes:
       - n8n_data:/home/node/.n8n
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`n8n.rapigent.com`)"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_DOMAIN:-n8n.example.com}`)"
       - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls=true"
       - "traefik.http.routers.n8n.tls.certresolver=myresolver"
@@ -100,7 +100,7 @@ services:
     container_name: openwebui
     environment:
       - OPENAI_API_BASE_URLS=http://llama:8080/
-      - WEBUI_URL=https://openwebui.rapigent.com
+      - WEBUI_URL=https://${WEBUI_DOMAIN:-ui.example.com}
       - DATA_DIR=/app/backend/data
       - NO_PROXY=0.0.0.0,localhost,127.0.0.1,host.docker.internal
       - UV_SYSTEM_PYTHON=true
@@ -112,7 +112,7 @@ services:
       - openwebui_data:/app/backend/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.openwebui.rule=Host(`openwebui.rapigent.com`)"
+      - "traefik.http.routers.openwebui.rule=Host(`${WEBUI_DOMAIN:-ui.example.com}`)"
       - "traefik.http.routers.openwebui.entrypoints=websecure"
       - "traefik.http.routers.openwebui.tls=true"
       - "traefik.http.routers.openwebui.tls.certresolver=myresolver"
@@ -147,10 +147,10 @@ services:
       - "--threads"
       - "3"
       - "--jinja"
-      - "--flash-attn" # <-- Corrected flag name from -fa
-      - "auto"         # <-- Provided a valid value for the flag
-      - "-sm"          # <-- Separated the -sm flag
-      - "row"          # <-- Provided its value correctly
+      - "--flash-attn"
+      - "auto"
+      - "-sm"
+      - "row"
       - "--temp"
       - "0.6"
       - "--top-k"
@@ -189,7 +189,7 @@ services:
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.myresolver.acme.email=mdptrading@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.email=${SSL_EMAIL:-admin@example.com}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--log.level=INFO"
       - "--providers.file.filename=/etc/traefik/traefik_dynamic.yml"
@@ -199,7 +199,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme.json:/letsencrypt/acme.json
-      - /home/ubuntu/ai/traefik_dynamic.yml:/etc/traefik/traefik_dynamic.yml:ro
+      - ./traefik_dynamic.yml:/etc/traefik/traefik_dynamic.yml:ro
     networks:
       internal:
         ipv4_address: 172.18.0.2
@@ -217,27 +217,21 @@ services:
           memory: 256m
     restart: unless-stopped
 
+  # Crawl4AI - Accessed via localhost:11235
   crawl4ai:
     image: unclecode/crawl4ai:latest
     container_name: crawl4ai
-    # Increase shared memory size to prevent browser crashes on heavy pages
     shm_size: '2gb'
+    ports:
+      - "11235:11235"
     environment:
-      # Optional: Secure the API if exposed externally
-      - CRAWL4AI_API_TOKEN=UPDATEME
+      - CRAWL4AI_API_TOKEN=${CRAWL4AI_TOKEN:-default_token_placeholder}
     volumes:
       - crawl4ai_data:/app/data
       - /dev/shm:/dev/shm
     networks:
       internal:
         ipv4_address: 172.18.0.9
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.crawl4ai.rule=Host(`crawl.UPDATE.ME`)"
-      - "traefik.http.routers.crawl4ai.entrypoints=websecure"
-      - "traefik.http.routers.crawl4ai.tls=true"
-      - "traefik.http.routers.crawl4ai.tls.certresolver=resolver"
-      - "traefik.http.services.crawl4ai.loadbalancer.server.port=11235"
     deploy:
       resources:
         limits:
